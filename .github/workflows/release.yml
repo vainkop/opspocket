@@ -29,18 +29,18 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run unit tests
-        run: ./gradlew testDebugUnitTest
+        run: ./gradlew :composeApp:testDebugUnitTest
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew :composeApp:assembleDebug
 
       - name: Prepare APK
         id: apk
         run: |
-          VERSION=$(grep 'versionName' app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          VERSION=$(grep 'versionName' composeApp/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
           SHORT_SHA=${GITHUB_SHA::7}
           APK_NAME="OpsPocket-${VERSION}-${SHORT_SHA}.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "${APK_NAME}"
+          cp composeApp/build/outputs/apk/debug/composeApp-debug.apk "${APK_NAME}"
           echo "apk_name=${APK_NAME}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"

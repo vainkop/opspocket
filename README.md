@@ -1,30 +1,33 @@
 # OpsPocket
 
-Cloud infrastructure management from your Android device. Manage Cast.ai Kubernetes clusters and Azure Virtual Machines on the go.
+Cloud infrastructure management from your phone. Manage Cast.ai Kubernetes clusters and Azure Virtual Machines on Android and iOS.
+
+Built with **Kotlin Multiplatform** + **Compose Multiplatform** — one shared codebase, native apps on both platforms.
 
 ## Features
 
 ### Cast.ai
 - **Cluster Management** - View all clusters dynamically fetched from Cast.ai API with status, region, and provider info
 - **One-Tap Rebalancing** - Trigger cluster rebalancing directly from your phone (create plan + execute)
-- **Secure API Key Storage** - Keys encrypted on device via EncryptedSharedPreferences; rotate or delete at any time
+- **Secure API Key Storage** - Keys encrypted on device (EncryptedSharedPreferences on Android, Keychain on iOS); rotate or delete at any time
 - **Status Indicators** - Color-coded chips for cluster status (ready/warning/failed/hibernated) and agent connectivity (online/disconnected)
 
 ### Azure
 - **Sign in with Microsoft** - Device Code Flow authentication, no app registration required
 - **Multi-Tenant Support** - Switch between Azure AD tenants
-- **Subscription Selection** - Pick which subscription to manage, persisted across restarts
+- **Smart Subscription Sorting** - Subscriptions sorted by last-used first, then by usage frequency
 - **VM Management** - List all virtual machines with power state indicators (Running/Stopped/Deallocated)
 - **Power Operations** - Start, Stop, Deallocate, and Restart VMs with confirmation dialogs
 
 ### General
+- **Cross-Platform** - Android and iOS from a single Kotlin codebase
 - **Pull-to-Refresh** - Swipe down to refresh any list
-- **Material You** - Dynamic color theming on Android 12+
 - **Dark Mode** - Full dark theme support
 
 ## Requirements
 
-- Android 14 (API 34) or higher
+- **Android**: Android 14 (API 34) or higher
+- **iOS**: Requires Mac with Xcode to build (project skeleton included)
 - Cast.ai account with API key (for Cast.ai features)
 - Microsoft account with Azure subscription (for Azure features)
 
@@ -41,15 +44,14 @@ Cloud infrastructure management from your Android device. Manage Cast.ai Kuberne
 ```bash
 git clone https://github.com/vainkop/opspocket.git
 cd opspocket
-./gradlew assembleDebug
-adb install app/build/outputs/apk/debug/app-debug.apk
+./gradlew :composeApp:assembleDebug
+adb install composeApp/build/outputs/apk/debug/composeApp-debug.apk
 ```
 
 ### Run Tests
 
 ```bash
-./gradlew test                   # Unit tests
-./gradlew connectedAndroidTest   # Instrumented tests (requires device/emulator)
+./gradlew :composeApp:testDebugUnitTest    # Shared + Android unit tests
 ```
 
 ### Download APK
@@ -111,35 +113,50 @@ Tap the gear icon in the VM list toolbar to change tenant or subscription.
 
 ## Architecture
 
-Clean Architecture with strict layer separation:
+Clean Architecture with strict layer separation, fully shared across platforms:
 
 ```
 presentation/  ->  domain/  ->  data/
 (UI + ViewModel)   (UseCases)   (API + Storage)
 ```
 
-- **Presentation**: Jetpack Compose screens, Hilt ViewModels, sealed UI states, MVI pattern
+- **Presentation**: Compose Multiplatform screens, Koin ViewModels, sealed UI states, MVI pattern
 - **Domain**: Use cases, domain models, repository interfaces
-- **Data**: Retrofit APIs, kotlinx-serialization DTOs, OkHttp interceptors, EncryptedSharedPreferences, DataStore
+- **Data**: Ktor API clients, kotlinx-serialization DTOs, expect/actual SecureStorage, multiplatform-settings
 
 ### Tech Stack
 
 | Component | Technology |
 |---|---|
-| Language | Kotlin 2.1 |
-| UI | Jetpack Compose + Material 3 |
-| DI | Hilt |
-| Networking | Retrofit + OkHttp |
+| Language | Kotlin 2.1 (Multiplatform) |
+| UI | Compose Multiplatform 1.8.2 + Material 3 |
+| DI | Koin 4.1.1 |
+| Networking | Ktor 3.1.1 |
 | Serialization | kotlinx-serialization |
-| Navigation | Compose Navigation |
+| Navigation | JetBrains Navigation Compose 2.9.0 |
+| Lifecycle | JetBrains Lifecycle 2.9.0 |
 | State | StateFlow + MVI |
-| Security | EncryptedSharedPreferences |
-| Preferences | DataStore |
+| Security | EncryptedSharedPreferences (Android) / Keychain (iOS) |
+| Preferences | multiplatform-settings 1.3.0 |
 | Auth | OAuth2 Device Code Flow |
 | Build | Gradle 8.11.1 (Kotlin DSL) |
 | CI | GitHub Actions |
-| Min SDK | 34 (Android 14) |
-| Target SDK | 35 (Android 15) |
+| Android | Min SDK 34 (Android 14), Target SDK 35 |
+| iOS | Xcode project skeleton (requires Mac to build) |
+
+### Project Structure
+
+```
+opspocket/
+├── composeApp/                  # KMP + Compose Multiplatform module
+│   └── src/
+│       ├── commonMain/          # Shared code (72 files) - domain, data, DI, UI, navigation
+│       ├── commonTest/          # Shared tests (12 files)
+│       ├── androidMain/         # Android-specific (5 files) - entry point, secure storage, resources
+│       └── iosMain/             # iOS-specific (4 files) - entry point, secure storage
+├── iosApp/                      # Xcode project skeleton (Swift entry point)
+└── gradle/libs.versions.toml    # Centralized dependency versions
+```
 
 ## CI/CD
 
@@ -148,12 +165,16 @@ presentation/  ->  domain/  ->  data/
 
 To create a release:
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
+
+iOS builds require a Mac runner (`macos-latest`) — not yet configured in CI.
 
 ## Roadmap
 
+- [ ] iOS build pipeline (macOS CI runner + TestFlight)
+- [ ] iOS Keychain integration (replace NSUserDefaults placeholder)
 - [ ] Azure resource group filtering
 - [ ] VM auto-refresh on power state change
 - [ ] Cluster node list view
@@ -161,7 +182,6 @@ git push origin v0.2.0
 - [ ] Push notifications for operation status
 - [ ] Biometric authentication
 - [ ] Multiple API key profiles
-- [ ] Backend proxy for API key security
 
 ## License
 

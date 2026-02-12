@@ -22,4 +22,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "OpsPocket"
-include(":app")
+include(":composeApp")
