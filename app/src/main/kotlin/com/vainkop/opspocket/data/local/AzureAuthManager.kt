@@ -4,6 +4,7 @@ import com.vainkop.opspocket.data.remote.AzureAuthApi
 import com.vainkop.opspocket.domain.model.DeviceCodeInfo
 import kotlinx.coroutines.delay
 import retrofit2.HttpException
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -55,6 +56,8 @@ class AzureAuthManager @Inject constructor(
                 if ("authorization_pending" !in errorBody && "slow_down" !in errorBody) {
                     throw e
                 }
+            } catch (_: IOException) {
+                // Transient network error (DNS, timeout) - keep polling
             }
         }
         return false
