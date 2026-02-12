@@ -92,7 +92,7 @@ class AzureAuthManager @Inject constructor(
     }
 
     companion object {
-        const val CLIENT_ID = "04b07795-a710-4532-9ddb-53d128d8f01a" // Azure CLI public client
+        const val CLIENT_ID = "1950a258-227b-4e31-a9cf-717495945fc2" // Azure PowerShell public client
         const val SCOPE = "https://management.azure.com/.default offline_access"
     }
 }
