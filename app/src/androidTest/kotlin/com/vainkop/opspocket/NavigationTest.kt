@@ -36,18 +36,18 @@ class NavigationTest {
 
     @Test
     fun homeScreen_displaysAzureButton() {
-        composeRule.onNodeWithText("Manage Azure (Coming Soon)").assertIsDisplayed()
-    }
-
-    @Test
-    fun homeScreen_azureButton_showsSnackbar() {
-        composeRule.onNodeWithText("Manage Azure (Coming Soon)").performClick()
-        composeRule.onNodeWithText("Azure integration is in development").assertIsDisplayed()
+        composeRule.onNodeWithText("Manage Azure").assertIsDisplayed()
     }
 
     @Test
     fun homeScreen_castAiButton_navigatesToApiKey() {
         composeRule.onNodeWithText("Manage Cast.ai").performClick()
         composeRule.onNodeWithText("Connect to Cast.ai").assertIsDisplayed()
+    }
+
+    @Test
+    fun homeScreen_azureButton_navigatesToAzureAuth() {
+        composeRule.onNodeWithText("Manage Azure").performClick()
+        composeRule.onNodeWithText("Azure Sign-In").assertIsDisplayed()
     }
 }

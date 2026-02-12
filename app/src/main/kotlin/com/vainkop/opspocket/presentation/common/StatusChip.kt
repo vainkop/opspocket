@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vainkop.opspocket.domain.model.AgentStatus
 import com.vainkop.opspocket.domain.model.ClusterStatus
+import com.vainkop.opspocket.domain.model.VmPowerState
 
 @Composable
 fun ClusterStatusChip(status: ClusterStatus, modifier: Modifier = Modifier) {
@@ -53,7 +54,26 @@ fun AgentStatusChip(status: AgentStatus, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun StatusChipInternal(
+fun VmPowerStateChip(powerState: VmPowerState, modifier: Modifier = Modifier) {
+    val (backgroundColor, contentColor, label) = when (powerState) {
+        VmPowerState.RUNNING -> Triple(Color(0xFF1B5E20), Color.White, "Running")
+        VmPowerState.STOPPED -> Triple(Color(0xFFB71C1C), Color.White, "Stopped")
+        VmPowerState.DEALLOCATED -> Triple(Color(0xFF616161), Color.White, "Deallocated")
+        VmPowerState.STARTING -> Triple(Color(0xFF00695C), Color.White, "Starting")
+        VmPowerState.STOPPING -> Triple(Color(0xFFE65100), Color.White, "Stopping")
+        VmPowerState.DEALLOCATING -> Triple(Color(0xFF4A148C), Color.White, "Deallocating")
+        VmPowerState.UNKNOWN -> Triple(Color(0xFF616161), Color.White, "Unknown")
+    }
+    StatusChipInternal(
+        label = label,
+        backgroundColor = backgroundColor,
+        contentColor = contentColor,
+        modifier = modifier,
+    )
+}
+
+@Composable
+internal fun StatusChipInternal(
     label: String,
     backgroundColor: Color,
     contentColor: Color,
