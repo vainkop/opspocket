@@ -163,6 +163,11 @@ class AzureSetupViewModel @Inject constructor(
         loadTenants()
     }
 
+    fun forceReselect() {
+        // Skip persisted selection check, go straight to tenant selection
+        loadTenants()
+    }
+
     fun retry() {
         val currentState = _uiState.value
         if (currentState is AzureSetupUiState.Error) {

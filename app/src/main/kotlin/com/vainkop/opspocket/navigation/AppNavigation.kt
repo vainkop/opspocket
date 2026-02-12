@@ -70,22 +70,32 @@ fun AppNavigation(navController: NavHostController) {
         composable(Screen.AzureAuth.route) {
             AzureAuthScreen(
                 onSignedIn = {
-                    navController.navigate(Screen.AzureSetup.route) {
+                    navController.navigate(Screen.AzureSetup.createRoute(forceSetup = false)) {
                         popUpTo(Screen.AzureAuth.route) { inclusive = true }
                     }
                 },
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        composable(Screen.AzureSetup.route) {
+        composable(
+            route = Screen.AzureSetup.route,
+            arguments = listOf(
+                navArgument("forceSetup") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            )
+        ) { backStackEntry ->
+            val forceSetup = backStackEntry.arguments?.getBoolean("forceSetup") ?: false
             AzureSetupScreen(
+                forceSetup = forceSetup,
                 onSetupComplete = {
                     navController.navigate(Screen.VmList.route) {
                         popUpTo(Screen.Home.route) { inclusive = false }
                     }
                 },
                 onNavigateBack = {
-                    navController.popBackStack(Screen.Home.route, inclusive = false)
+                    navController.popBackStack()
                 }
             )
         }
@@ -100,7 +110,7 @@ fun AppNavigation(navController: NavHostController) {
                     navController.popBackStack(Screen.Home.route, inclusive = false)
                 },
                 onSettings = {
-                    navController.navigate(Screen.AzureSetup.route)
+                    navController.navigate(Screen.AzureSetup.createRoute(forceSetup = true))
                 }
             )
         }

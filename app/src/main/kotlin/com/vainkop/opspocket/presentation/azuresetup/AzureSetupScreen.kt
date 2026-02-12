@@ -44,11 +44,18 @@ import com.vainkop.opspocket.presentation.common.LoadingIndicator
 fun AzureSetupScreen(
     onSetupComplete: () -> Unit,
     onNavigateBack: () -> Unit,
+    forceSetup: Boolean = false,
     viewModel: AzureSetupViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(uiState) {
+    LaunchedEffect(forceSetup) {
+        if (forceSetup) {
+            viewModel.forceReselect()
+        }
+    }
+
+    LaunchedEffect(uiState, forceSetup) {
         if (uiState is AzureSetupUiState.Ready) {
             onSetupComplete()
         }
