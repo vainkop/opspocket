@@ -7,6 +7,9 @@ import com.vainkop.opspocket.domain.model.AzureSubscription
 import com.vainkop.opspocket.domain.model.AzureTenant
 import com.vainkop.opspocket.domain.model.AzureVm
 import com.vainkop.opspocket.domain.repository.AzureRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
@@ -49,7 +52,22 @@ class AzureRepositoryImpl @Inject constructor(
         return try {
             val response = api.getVirtualMachines(subscriptionId)
             val vms = response.value?.map { it.toDomain() } ?: emptyList()
-            AppResult.Success(vms)
+            // Fetch instance view per-VM in parallel to get power states
+            val vmsWithState = coroutineScope {
+                vms.map { vm ->
+                    async {
+                        try {
+                            val detail = api.getVmWithInstanceView(
+                                subscriptionId, vm.resourceGroup, vm.name,
+                            )
+                            detail.toDomain()
+                        } catch (_: Exception) {
+                            vm // Keep VM with UNKNOWN power state on failure
+                        }
+                    }
+                }.awaitAll()
+            }
+            AppResult.Success(vmsWithState)
         } catch (e: HttpException) {
             AppResult.Error(e.message(), e.code())
         } catch (e: IOException) {
