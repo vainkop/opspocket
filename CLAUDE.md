@@ -2,13 +2,18 @@
 
 ## Project Overview
 
-Native Android app built with Kotlin + Jetpack Compose.
+Native Android app for managing cloud infrastructure (Cast.ai) from mobile.
+Built with Kotlin + Jetpack Compose, targeting modern Android 14+.
 
 - **Package**: `com.vainkop.opspocket`
-- **Min SDK**: 26 (Android 8.0)
+- **Min SDK**: 34 (Android 14)
 - **Target/Compile SDK**: 35 (Android 15)
 - **Build system**: Gradle 8.11.1 with Kotlin DSL
 - **UI**: Jetpack Compose with Material 3 + dynamic color
+- **Architecture**: Clean Architecture (data / domain / presentation)
+- **DI**: Hilt
+- **Networking**: Retrofit + OkHttp + kotlinx-serialization
+- **Security**: EncryptedSharedPreferences for API key storage
 
 ## Development Environment
 
@@ -54,6 +59,30 @@ avdmanager create avd -n Pixel_7 -k "system-images;android-35;google_apis;x86_64
 emulator -avd Pixel_7            # Launch emulator
 ```
 
+## Architecture
+
+```
+com.vainkop.opspocket/
+├── data/                         # Data layer
+│   ├── local/                    # SecureApiKeyStorage (EncryptedSharedPreferences)
+│   ├── mapper/                   # DTO -> Domain mappers
+│   ├── remote/                   # Retrofit API + DTOs + AuthInterceptor
+│   └── repository/               # Repository implementations
+├── di/                           # Hilt modules (NetworkModule, RepositoryModule)
+├── domain/                       # Domain layer
+│   ├── model/                    # Domain models + AppResult sealed class
+│   ├── repository/               # Repository interfaces
+│   └── usecase/                  # Use cases (ValidateApiKey, GetClusters, etc.)
+├── navigation/                   # Compose Navigation (Screen routes, NavHost)
+├── presentation/                 # Presentation layer
+│   ├── apikey/                   # API key entry/management screen + ViewModel
+│   ├── clusterdetails/           # Cluster details + rebalancing screen + ViewModel
+│   ├── clusterlist/              # Cluster list screen + ViewModel
+│   ├── common/                   # Shared UI components (StatusChip, LoadingIndicator, etc.)
+│   └── home/                     # Home screen
+└── ui/theme/                     # Material 3 theme
+```
+
 ## Project Structure
 
 ```
@@ -65,8 +94,14 @@ opspocket/
 │       ├── main/
 │       │   ├── AndroidManifest.xml
 │       │   ├── kotlin/com/vainkop/opspocket/
-│       │   │   ├── MainActivity.kt           # Entry point
-│       │   │   └── ui/theme/Theme.kt         # Material 3 theme
+│       │   │   ├── MainActivity.kt           # Entry point (@AndroidEntryPoint)
+│       │   │   ├── OpsPocketApplication.kt   # Hilt Application
+│       │   │   ├── data/                     # Data layer
+│       │   │   ├── di/                       # DI modules
+│       │   │   ├── domain/                   # Domain layer
+│       │   │   ├── navigation/               # Navigation
+│       │   │   ├── presentation/             # Screens + ViewModels
+│       │   │   └── ui/theme/                 # Theme
 │       │   └── res/                          # Resources
 │       ├── test/                             # Unit tests (JVM)
 │       └── androidTest/                      # Instrumented tests
@@ -86,40 +121,68 @@ opspocket/
 All versions are centralized in `gradle/libs.versions.toml`. Use version catalog references:
 
 ```kotlin
-// In build.gradle.kts
 implementation(libs.androidx.core.ktx)
 implementation(libs.androidx.material3)
 ```
 
-### Pre-configured libraries (uncomment in build.gradle.kts when needed)
-
-Available in the version catalog but not all wired into dependencies yet:
+### Active Dependencies
 
 | Category | Libraries |
 |---|---|
-| **Networking** | OkHttp, Retrofit, kotlinx-serialization |
-| **DI** | Hilt + Hilt Navigation Compose |
+| **Core** | AndroidX Core KTX, Lifecycle (runtime, viewmodel, compose) |
+| **UI** | Jetpack Compose (BOM), Material 3, Material Icons Extended |
+| **Navigation** | Navigation Compose |
+| **Networking** | OkHttp + logging, Retrofit + kotlinx-serialization converter |
+| **Serialization** | kotlinx-serialization-json |
+| **DI** | Hilt + Hilt Navigation Compose + KSP compiler |
+| **Security** | AndroidX Security Crypto (EncryptedSharedPreferences) |
+| **Coroutines** | kotlinx-coroutines-android |
+| **Testing** | JUnit 4, Espresso, Compose UI testing, Coroutines test, Hilt testing |
+
+### Available but not wired
+
+| Category | Libraries |
+|---|---|
 | **Database** | Room (runtime, ktx, compiler) |
 | **Storage** | DataStore Preferences |
 | **Images** | Coil Compose |
-| **Navigation** | Navigation Compose (already wired) |
-| **Coroutines** | kotlinx-coroutines (already wired) |
 
-To add e.g. Hilt: add the plugin to `build.gradle.kts` (root + app) and add the dependency.
+## Cast.ai API Integration
+
+The app communicates with Cast.ai via these endpoints:
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/v1/kubernetes/external-clusters` | GET | List all clusters (also validates API key) |
+| `/v1/kubernetes/external-clusters/{id}` | GET | Get cluster details |
+| `/v1/kubernetes/clusters/{id}/rebalancing-plans` | POST | Create rebalancing plan (body: `{"minNodes": 1}`) |
+| `/v1/kubernetes/clusters/{id}/rebalancing-plans/{planId}/execute` | POST | Execute rebalancing plan |
+
+Authentication: `X-API-Key` header injected via OkHttp interceptor.
+
+### Rebalancing Flow
+
+1. Check cluster status (must be "ready")
+2. POST create plan -> get `rebalancingPlanId`
+3. Wait 5 seconds for plan generation
+4. POST execute plan
+5. Show result
 
 ## Conventions
 
 - Language: **Kotlin** (no Java)
 - UI: **Jetpack Compose** (no XML layouts)
 - Build DSL: **Kotlin DSL** (`.gradle.kts`)
-- Architecture: follow standard Android architecture (ViewModel + Repository + data layer)
+- Architecture: Clean Architecture (ViewModel + UseCase + Repository)
+- Pattern: MVI / unidirectional data flow with sealed UI states
+- State: StateFlow in ViewModels, collectAsStateWithLifecycle in Compose
 - Always use `./gradlew` (wrapper), not the system `gradle`
-- Debug builds use applicationId suffix `.debug` so both debug and release can coexist on a device
+- Debug builds use applicationId suffix `.debug` so both debug and release can coexist
 
 ## Do Not Commit
 
-- `local.properties` — machine-specific SDK path
-- `*.keystore` / `*.jks` — signing keys
+- `local.properties` - machine-specific SDK path
+- `*.keystore` / `*.jks` - signing keys
 - `build/` directories
-- `.gradle/` — Gradle cache
+- `.gradle/` - Gradle cache
 - API keys, secrets, credentials
