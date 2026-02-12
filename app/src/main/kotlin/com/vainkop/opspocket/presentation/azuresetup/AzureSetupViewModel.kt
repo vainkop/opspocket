@@ -1,5 +1,6 @@
 package com.vainkop.opspocket.presentation.azuresetup
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vainkop.opspocket.data.local.AzureAuthManager
@@ -31,24 +32,30 @@ sealed class AzureSetupUiState {
 
 @HiltViewModel
 class AzureSetupViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val getTenantsUseCase: GetTenantsUseCase,
     private val getSubscriptionsUseCase: GetSubscriptionsUseCase,
     private val azurePreferences: AzurePreferences,
     private val authManager: AzureAuthManager,
 ) : ViewModel() {
 
+    private val forceSetup: Boolean = savedStateHandle["forceSetup"] ?: false
+
     private val _uiState = MutableStateFlow<AzureSetupUiState>(AzureSetupUiState.LoadingTenants)
     val uiState: StateFlow<AzureSetupUiState> = _uiState.asStateFlow()
 
     init {
-        checkPersistedSelection()
+        if (forceSetup) {
+            loadTenants()
+        } else {
+            checkPersistedSelection()
+        }
     }
 
     private fun checkPersistedSelection() {
         viewModelScope.launch {
             val selection = azurePreferences.getSelection()
             if (selection.isComplete) {
-                // Ensure token is valid for the selected tenant
                 val refreshed = authManager.ensureValidToken(selection.tenantId)
                 if (refreshed) {
                     _uiState.update { AzureSetupUiState.Ready }
@@ -74,7 +81,6 @@ class AzureSetupViewModel @Inject constructor(
                             )
                         }
                     } else if (result.data.size == 1) {
-                        // Auto-select if only one tenant
                         selectTenant(result.data.first())
                     } else {
                         _uiState.update { AzureSetupUiState.SelectTenant(result.data) }
@@ -101,7 +107,6 @@ class AzureSetupViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { AzureSetupUiState.LoadingSubscriptions(tenant) }
 
-            // Acquire tenant-scoped token
             val refreshed = authManager.refreshAccessToken(tenant.tenantId)
             if (!refreshed) {
                 _uiState.update {
@@ -163,18 +168,13 @@ class AzureSetupViewModel @Inject constructor(
         loadTenants()
     }
 
-    fun forceReselect() {
-        // Skip persisted selection check, go straight to tenant selection
-        loadTenants()
-    }
-
     fun retry() {
         val currentState = _uiState.value
         if (currentState is AzureSetupUiState.Error) {
             when (currentState.step) {
                 "tenants" -> loadTenants()
                 "subscriptions" -> {
-                    val selection = viewModelScope.launch {
+                    viewModelScope.launch {
                         val sel = azurePreferences.getSelection()
                         if (sel.tenantId != null) {
                             selectTenant(AzureTenant(sel.tenantId, sel.tenantName.orEmpty()))

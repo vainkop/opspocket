@@ -211,6 +211,30 @@ fun ApiKeyScreen(
             }
             if (uiState.hasExistingKey) {
                 Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = viewModel::continueWithExistingKey,
+                    enabled = !uiState.isConnecting,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    if (uiState.isConnecting && uiState.apiKey.isBlank()) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
+                        Text("Connecting...")
+                    } else {
+                        Text(
+                            text = "Continue with existing key",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(
                     onClick = { showDeleteConfirmation = true },
                     modifier = Modifier

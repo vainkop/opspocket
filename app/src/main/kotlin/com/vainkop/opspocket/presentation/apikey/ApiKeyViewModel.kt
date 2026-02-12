@@ -35,6 +35,34 @@ class ApiKeyViewModel @Inject constructor(
         _uiState.update { it.copy(hasExistingKey = hasKey) }
     }
 
+    fun continueWithExistingKey() {
+        if (!secureApiKeyStorage.hasApiKey()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isConnecting = true, errorMessage = null) }
+            when (val result = validateApiKeyUseCase()) {
+                is AppResult.Success -> {
+                    _uiState.update { it.copy(isConnecting = false, isConnected = true) }
+                }
+                is AppResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            isConnecting = false,
+                            errorMessage = "Stored key is invalid: ${result.message}",
+                        )
+                    }
+                }
+                is AppResult.NetworkError -> {
+                    _uiState.update {
+                        it.copy(
+                            isConnecting = false,
+                            errorMessage = "Network error. Please check your connection and try again.",
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     fun onApiKeyChange(key: String) {
         _uiState.update { it.copy(apiKey = key, errorMessage = null) }
     }

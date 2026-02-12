@@ -49,13 +49,7 @@ fun AzureSetupScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(forceSetup) {
-        if (forceSetup) {
-            viewModel.forceReselect()
-        }
-    }
-
-    LaunchedEffect(uiState, forceSetup) {
+    LaunchedEffect(uiState) {
         if (uiState is AzureSetupUiState.Ready) {
             onSetupComplete()
         }
