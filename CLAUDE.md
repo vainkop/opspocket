@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Native Android app for managing cloud infrastructure (Cast.ai) from mobile.
+Native Android app for managing cloud infrastructure (Cast.ai + Azure) from mobile.
 Built with Kotlin + Jetpack Compose, targeting modern Android 14+.
 
 - **Package**: `com.vainkop.opspocket`
@@ -13,7 +13,8 @@ Built with Kotlin + Jetpack Compose, targeting modern Android 14+.
 - **Architecture**: Clean Architecture (data / domain / presentation)
 - **DI**: Hilt
 - **Networking**: Retrofit + OkHttp + kotlinx-serialization
-- **Security**: EncryptedSharedPreferences for API key storage
+- **Security**: EncryptedSharedPreferences for API key & token storage
+- **Auth**: Azure Device Code Flow (OAuth2, no app registration required)
 
 ## Development Environment
 
@@ -64,22 +65,28 @@ emulator -avd Pixel_7            # Launch emulator
 ```
 com.vainkop.opspocket/
 ├── data/                         # Data layer
-│   ├── local/                    # SecureApiKeyStorage (EncryptedSharedPreferences)
-│   ├── mapper/                   # DTO -> Domain mappers
-│   ├── remote/                   # Retrofit API + DTOs + AuthInterceptor
+│   ├── local/                    # SecureApiKeyStorage, AzureTokenStorage, AzureAuthManager, AzurePreferences
+│   ├── mapper/                   # DTO -> Domain mappers (ClusterMapper, AzureMapper)
+│   ├── remote/                   # Retrofit APIs + DTOs + Interceptors
+│   │   ├── dto/                  # Cast.ai + Azure serializable DTOs
+│   │   └── interceptor/          # AuthInterceptor (Cast.ai), AzureAuthInterceptor (Bearer token)
 │   └── repository/               # Repository implementations
-├── di/                           # Hilt modules (NetworkModule, RepositoryModule)
+├── di/                           # Hilt modules (NetworkModule, AzureNetworkModule, RepositoryModule, AzureRepositoryModule)
 ├── domain/                       # Domain layer
 │   ├── model/                    # Domain models + AppResult sealed class
-│   ├── repository/               # Repository interfaces
-│   └── usecase/                  # Use cases (ValidateApiKey, GetClusters, etc.)
+│   ├── repository/               # Repository interfaces (CastAiRepository, AzureRepository)
+│   └── usecase/                  # Use cases (ValidateApiKey, GetClusters, GetTenants, GetVMs, PerformVmAction, etc.)
 ├── navigation/                   # Compose Navigation (Screen routes, NavHost)
 ├── presentation/                 # Presentation layer
 │   ├── apikey/                   # API key entry/management screen + ViewModel
+│   ├── azureauth/                # Azure Device Code Flow sign-in screen + ViewModel
+│   ├── azuresetup/               # Azure tenant/subscription selection screen + ViewModel
 │   ├── clusterdetails/           # Cluster details + rebalancing screen + ViewModel
 │   ├── clusterlist/              # Cluster list screen + ViewModel
-│   ├── common/                   # Shared UI components (StatusChip, LoadingIndicator, etc.)
-│   └── home/                     # Home screen
+│   ├── common/                   # Shared UI components (StatusChip, VmPowerStateChip, LoadingIndicator, etc.)
+│   ├── home/                     # Home screen
+│   ├── vmdetails/                # VM details + power operations screen + ViewModel
+│   └── vmlist/                   # VM list screen + ViewModel
 └── ui/theme/                     # Material 3 theme
 ```
 
@@ -136,6 +143,7 @@ implementation(libs.androidx.material3)
 | **Serialization** | kotlinx-serialization-json |
 | **DI** | Hilt + Hilt Navigation Compose + KSP compiler |
 | **Security** | AndroidX Security Crypto (EncryptedSharedPreferences) |
+| **Storage** | DataStore Preferences (Azure tenant/subscription selection) |
 | **Coroutines** | kotlinx-coroutines-android |
 | **Testing** | JUnit 4, Espresso, Compose UI testing, Coroutines test, Hilt testing |
 
@@ -144,7 +152,6 @@ implementation(libs.androidx.material3)
 | Category | Libraries |
 |---|---|
 | **Database** | Room (runtime, ktx, compiler) |
-| **Storage** | DataStore Preferences |
 | **Images** | Coil Compose |
 
 ## Cast.ai API Integration
@@ -168,6 +175,43 @@ Authentication: `X-API-Key` header injected via OkHttp interceptor.
 4. POST execute plan
 5. Show result
 
+## Azure API Integration
+
+Authentication uses the **Device Code Flow** (OAuth2) with Azure PowerShell's well-known public client ID (`1950a258-227b-4e31-a9cf-717495945fc2`). No Azure AD app registration is required from anyone.
+
+### Auth Flow
+
+1. POST `/common/oauth2/v2.0/devicecode` -> get user code + verification URL
+2. User opens `https://microsoft.com/devicelogin` in browser, enters code, authenticates
+3. App polls `/common/oauth2/v2.0/token` until authentication completes
+4. Access + refresh tokens stored encrypted via EncryptedSharedPreferences
+5. Token refresh via `/tenant/oauth2/v2.0/token` for tenant switching
+
+### Azure Management API Endpoints
+
+Base URL: `https://management.azure.com/`
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/tenants` | GET | List Azure AD tenants |
+| `/subscriptions` | GET | List subscriptions |
+| `/subscriptions/{sub}/providers/Microsoft.Compute/virtualMachines` | GET | List VMs (power state fetched per-VM) |
+| `/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Compute/virtualMachines/{vm}?$expand=instanceView` | GET | VM with power state |
+| `.../virtualMachines/{vm}/start` | POST | Start VM |
+| `.../virtualMachines/{vm}/powerOff` | POST | Stop VM |
+| `.../virtualMachines/{vm}/deallocate` | POST | Deallocate VM |
+| `.../virtualMachines/{vm}/restart` | POST | Restart VM |
+
+Authentication: `Authorization: Bearer {token}` header injected via OkHttp interceptor.
+
+### Navigation Flow
+
+```
+Home -> AzureAuth (Device Code sign-in) -> AzureSetup (tenant -> subscription) -> VmList -> VmDetails (power ops)
+```
+
+Tenant + subscription selection persisted via DataStore Preferences across app restarts.
+
 ## CI/CD
 
 Two GitHub Actions workflows in `.github/workflows/`:
@@ -177,8 +221,8 @@ Two GitHub Actions workflows in `.github/workflows/`:
 
 To create a release:
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 ## Conventions
@@ -191,6 +235,7 @@ git push origin v0.1.0
 - State: StateFlow in ViewModels, collectAsStateWithLifecycle in Compose
 - Always use `./gradlew` (wrapper), not the system `gradle`
 - Debug builds use applicationId suffix `.debug` so both debug and release can coexist
+- Azure networking uses `@Named("azure")` qualifiers to avoid DI conflicts with Cast.ai
 
 ## Do Not Commit
 
