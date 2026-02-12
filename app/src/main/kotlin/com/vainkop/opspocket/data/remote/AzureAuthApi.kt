@@ -21,7 +21,7 @@ interface AzureAuthApi {
     @POST("{tenant}/oauth2/v2.0/token")
     suspend fun pollToken(
         @Path("tenant") tenant: String = "common",
-        @Field("grant_type") grantType: String = "urn:ietf:params:oauth:grants:device-code",
+        @Field("grant_type", encoded = true) grantType: String = "urn:ietf:params:oauth:grant-type:device_code",
         @Field("client_id") clientId: String,
         @Field("device_code") deviceCode: String,
     ): TokenResponseDto
@@ -30,7 +30,7 @@ interface AzureAuthApi {
     @POST("{tenant}/oauth2/v2.0/token")
     suspend fun refreshToken(
         @Path("tenant") tenant: String = "common",
-        @Field("grant_type") grantType: String = "refresh_token",
+        @Field("grant_type", encoded = true) grantType: String = "refresh_token",
         @Field("client_id") clientId: String,
         @Field("refresh_token") refreshToken: String,
         @Field("scope") scope: String,
