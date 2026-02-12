@@ -1,11 +1,10 @@
-name: Build & Release APK
+name: CI
 
 on:
   push:
     branches: [main]
-
-permissions:
-  contents: write
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
@@ -32,36 +31,3 @@ jobs:
 
       - name: Build debug APK
         run: ./gradlew assembleDebug
-
-      - name: Rename APK with version info
-        id: apk
-        run: |
-          VERSION=$(grep 'versionName' app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          SHORT_SHA=${GITHUB_SHA::7}
-          APK_NAME="OpsPocket-${VERSION}-${SHORT_SHA}.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "${APK_NAME}"
-          echo "apk_name=${APK_NAME}" >> "$GITHUB_OUTPUT"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.apk.outputs.apk_name }}
-          path: ${{ steps.apk.outputs.apk_name }}
-          retention-days: 90
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.apk.outputs.version }}-${{ steps.apk.outputs.short_sha }}
-          name: OpsPocket v${{ steps.apk.outputs.version }} (${{ steps.apk.outputs.short_sha }})
-          body: |
-            **Auto-built from [`${{ steps.apk.outputs.short_sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})**
-
-            ${{ github.event.head_commit.message }}
-
-            ---
-            Download the APK below and install on Android 14+.
-          files: ${{ steps.apk.outputs.apk_name }}
-          make_latest: true

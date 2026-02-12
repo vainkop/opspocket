@@ -168,6 +168,19 @@ Authentication: `X-API-Key` header injected via OkHttp interceptor.
 4. POST execute plan
 5. Show result
 
+## CI/CD
+
+Two GitHub Actions workflows in `.github/workflows/`:
+
+- **`build.yml` (CI)**: Runs on every push/PR to `main`. Runs unit tests and builds the debug APK. No release created.
+- **`release.yml` (Release)**: Runs on version tags (`v*`) or manual `workflow_dispatch`. Builds APK, uploads artifact, creates GitHub Release with APK attached.
+
+To create a release:
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ## Conventions
 
 - Language: **Kotlin** (no Java)
