@@ -25,6 +25,7 @@ interface AzureManagementApi {
     suspend fun getVirtualMachines(
         @Path("subscriptionId") subscriptionId: String,
         @Query("api-version") apiVersion: String = "2024-07-01",
+        @Query("\$expand") expand: String = "instanceView",
         @Query("\$statusOnly") statusOnly: String = "true",
     ): AzureVmListResponseDto
 
